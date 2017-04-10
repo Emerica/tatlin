@@ -110,7 +110,6 @@ class GcodeLexer(object):
                         comment = part + ' ' + comment
                 else:
                     args[part[0]] = None
-
             return (parts[0], args, comment)
         else:
             return ('', ArgsDict(), comment)
@@ -154,14 +153,15 @@ class Movement(object):
     FLAG_INCHES          = 32
 
     # tell the python interpreter to only allocate memory for the following attributes
-    __slots__ = ['v', 'delta_e', 'feedrate', 'flags']
+    __slots__ = ['v', 'delta_e', 'feedrate', 'flags', 'spindle_speed']
 
-    def __init__(self, v, delta_e, feedrate, flags=0):
+    def __init__(self, v, delta_e, feedrate, flags=0, spindle_speed=0):
         self.v = v
 
         self.delta_e  = delta_e
         self.feedrate = feedrate
         self.flags    = flags
+        self.spindle_speed = spindle_speed
 
     def angle(self, start, precision=0):
         x = self.v[0] - start[0]
@@ -174,7 +174,7 @@ class Movement(object):
         return s
 
     def __repr__(self):
-        s = "Movement(%s, %s, %s, %s)" % (self.v, self.delta_e, self.feedrate, self.flags)
+        s = "Movement(%s, %s, %s, %s, %s)" % (self.v, self.delta_e, self.feedrate, self.flags, self.spindle_speed)
         return s
 
 
@@ -191,7 +191,7 @@ class GcodeParser(object):
     def __init__(self):
         self.lexer = GcodeLexer()
 
-        self.args      = ArgsDict({'X': 0, 'Y': 0, 'Z': 0, 'F': 0, 'E': 0})
+        self.args      = ArgsDict({'X': 0, 'Y': 0, 'Z': 0, 'F': 0, 'E': 0, 'S':0})
         self.offset    = {'X': 0, 'Y': 0, 'Z': 0, 'E': 0}
         self.src       = None
         self.flags     = 0
@@ -212,7 +212,7 @@ class GcodeParser(object):
         mm_in_inch = 25.4
         new_layer = False
         current_layer_z = 0
-
+        spindle_speed = 0
         for command_idx, command in enumerate(self.lexer.scan()):
             gcode, newargs, comment = command
 
@@ -230,7 +230,10 @@ class GcodeParser(object):
             if delta_e > 0 and args['Z'] != current_layer_z:
                 current_layer_z = args['Z']
                 new_layer = True
-
+            if args['S'] > 0:
+                spindle_speed = args['S']
+            else:
+                spindle_speed = 0
             # create a new movement if the gcode contains a valid coordinate
             if dst is not None and self.src != dst:
                 if self.src is not None and new_layer:
@@ -241,7 +244,8 @@ class GcodeParser(object):
                 if self.flags & Movement.FLAG_INCHES:
                     dst = (dst[0] * mm_in_inch, dst[1] * mm_in_inch, dst[2] * mm_in_inch)
 
-                move = Movement(array.array('f', dst), delta_e, args['F'], self.flags)
+                move = Movement(array.array('f', dst), delta_e, args['F'], self.flags, int(spindle_speed))
+                #print "BLAH" + str(args)
                 movements.append(move)
 
             # if gcode contains a valid coordinate, update the previous point
