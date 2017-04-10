@@ -20,7 +20,9 @@ from __future__ import division
 
 import wx
 from wx import glcanvas
-
+import PIL.Image
+import PIL.ImageTk
+#import EmbeddedIconData as eid
 
 # this variable is set when the app is instantiated so that all the ui elements
 # in this module can easily reference the app
@@ -453,6 +455,305 @@ class GcodePanel(wx.Panel):
     def set_3d_view(self, value):
         self.check_3d.SetValue(value)
 
+class XburnPanel(wx.Panel):
+    supported_types = ['gcode']
+
+    def __init__(self, parent):
+        super(XburnPanel, self).__init__(parent)
+        self.model_file = None
+        self._handlers_connected = False
+
+        #----------------------------------------------------------------------
+        # DIMENSIONS
+        #----------------------------------------------------------------------
+
+        static_box_dimensions = wx.StaticBox(self, label='Original Image')
+        self.imageHolder = wx.StaticBoxSizer(static_box_dimensions, wx.VERTICAL)
+
+        static_box_dimensions = wx.StaticBox(self, label='Filtered Image')
+        self.prevHolder = wx.StaticBoxSizer(static_box_dimensions, wx.VERTICAL)
+
+        self.originalImage = None
+        self.originalImageHolder = None
+
+        self.previewImage = None
+        self.previewImageHolder = None
+
+
+        static_box_dimensions = wx.StaticBox(self, label='Filter Settings')
+        self.filterHolder = wx.StaticBoxSizer(static_box_dimensions, wx.VERTICAL)
+
+        self.shadeSizer      = wx.BoxSizer(wx.HORIZONTAL)
+        self.labelshades = wx.StaticText( self, wx.ID_ANY, "Shades", (10, 255), wx.DefaultSize, 0 )
+        self.labelshades.Wrap( -1 )
+        self.shades = wx.Slider( self, wx.ID_ANY, app.shades, 2, 256,  wx.DefaultPosition, (200,-1), wx.SL_HORIZONTAL )
+        self.shadeinput = wx.TextCtrl(self, wx.ID_ANY,str(app.shades))
+        self.filterHolder.Add(self.labelshades, 0, wx.ALL)
+        self.shadeSizer.Add(self.shades, 0,  wx.ALL|wx.EXPAND, 5)
+        self.shadeSizer.Add(self.shadeinput, 0, wx.ALL)
+        self.filterHolder.Add(self.shadeSizer, 0, wx.ALL)
+        self.shades.Bind(wx.EVT_SLIDER, self.shadeScroll)
+
+
+        self.wvSizer      = wx.BoxSizer(wx.HORIZONTAL)
+        self.labelwv = wx.StaticText( self, wx.ID_ANY, "White Value", (10, 255), wx.DefaultSize, 0 )
+        self.labelwv.Wrap( -1 )
+        self.wv = wx.Slider( self, wx.ID_ANY, app.wv, 0, 255,  wx.DefaultPosition, (200,-1), wx.SL_HORIZONTAL )
+        self.wvinput = wx.TextCtrl(self, wx.ID_ANY,str(app.wv))
+        self.filterHolder.Add(self.labelwv, 0, wx.ALL)
+        self.wvSizer.Add(self.wv, 0,  wx.ALL|wx.EXPAND, 5)
+        self.wvSizer.Add(self.wvinput, 0, wx.ALL)
+        self.filterHolder.Add(self.wvSizer, 0, wx.ALL)
+
+        self.previewSkip = wx.CheckBox(self, label = 'Preview skipped White')
+        self.previewSkip.SetValue(app.wvpreview)
+        self.filterHolder.Add(self.previewSkip, 0, wx.ALL)
+
+        self.wv.Bind(wx.EVT_SLIDER, self.wvScroll)
+        self.previewSkip.Bind(wx.EVT_CHECKBOX,self.wvChecked)
+
+        self.apply = wx.Button(self, id=-1, label='Apply Changes')
+        self.apply.Bind(wx.EVT_BUTTON, self.generate)
+        # optional tooltip
+        self.apply.SetToolTip(wx.ToolTip("Click to regenerate main preview and code file."))
+        self.filterHolder.Add(self.apply, 0, wx.ALL)
+
+        self.box = wx.BoxSizer(wx.VERTICAL)
+        self.box.Add(self.imageHolder, 0, wx.EXPAND | wx.TOP | wx.RIGHT | wx.LEFT, border=5)
+        self.box.Add(self.prevHolder, 0, wx.EXPAND | wx.TOP | wx.RIGHT | wx.LEFT, border=5)
+        self.box.Add(self.filterHolder, 0, wx.EXPAND | wx.TOP | wx.RIGHT | wx.LEFT, border=5)
+
+
+
+        self.SetSizer(self.box)
+    def generate(self, e):
+        app.open_and_display_file(app.filename, "gcode")
+
+    def wvChecked(self, e):
+        obj = e.GetEventObject()
+        val = obj.GetValue()
+        print val
+        #self.wvinput.SetValue(str(val))
+        app.wvpreview = val
+        self.updateShadesFilter(app.shades)
+
+    def wvScroll(self, e):
+        obj = e.GetEventObject()
+        val = obj.GetValue()
+        self.wvinput.SetValue(str(val))
+        app.wv = val
+        self.updateShadesFilter(app.shades)
+
+    def shadeScroll(self, e):
+        obj = e.GetEventObject()
+        val = obj.GetValue()
+        self.shadeinput.SetValue(str(val))
+        app.shades = val
+        self.updateShadesFilter(app.shades)
+
+    def connect_handlers(self):
+        if self._handlers_connected:
+            return
+
+        self._handlers_connected = True
+
+
+    def set_initial_values(self, image):
+        self.image_file = image
+        self.originalImage = wx.Image(self.image_file, wx.BITMAP_TYPE_ANY)
+
+        W = self.originalImage.GetWidth()
+        H = self.originalImage.GetHeight()
+
+        if W > H:
+            self.NewW = 300
+            self.NewH = 300 * H / W
+        else:
+            self.NewH = 200
+            self.NewW = 200 * W / H
+
+        self.originalImage = self.originalImage.Scale(self.NewW,self.NewH)
+        self.originalImageHolder = wx.StaticBitmap(self, wx.ID_ANY, wx.BitmapFromImage(self.originalImage ))
+
+        self.imageHolder.Add(self.originalImageHolder, 0, wx.ALL|wx.CENTER, 5)
+        aimage = wx.EmptyImage(self.NewW,self.NewH)
+        self.previewImageHolder = wx.StaticBitmap(self, wx.ID_ANY, wx.BitmapFromImage(aimage))
+        #self.prevHolder.Add(self.previewImageHolder, 0, wx.ALL|wx.CENTER, 5)
+        self.prevHolder.Add(self.previewImageHolder, 0, wx.ALL|wx.CENTER, 5)
+
+        self.updateShadesFilter(app.shades)
+
+
+    def updateShadesFilter(self, value):
+        self.previewImage = PIL.Image.open(self.image_file)
+        #Do stuff
+        #ok.. convert to P with adatptive palette, limit colors to a value
+        self.previewImage = self.previewImage.resize((int(self.NewW),int(self.NewH)),PIL.Image.ANTIALIAS)
+        self.previewImage = self.previewImage.convert('P', palette=PIL.Image.ADAPTIVE,
+            colors=int(value))
+        #Then convert that to greyscale.
+        self.previewImage = self.previewImage.convert('L')
+        if app.wvpreview:
+            self.drawSkip()
+        aimage = wx.EmptyImage(*self.previewImage.size)
+        aimage.SetData(self.previewImage.convert("RGB").tobytes())
+        #aimage.SetAlphaData(self.previewImage.convert("RGBA").tobytes()[3::4])
+        self.previewImageHolder.SetBitmap(wx.BitmapFromImage(aimage))
+
+        #self.prevHolder.Refresh()
+
+    def drawSkip(self):
+        newimage = []
+        for pixel in self.previewImage.getdata():
+            if int(pixel) >= int(app.wv):
+                #Turn it red, #TODO, set a pref option for this color
+                newimage.append((255,0,0,0))
+            else:
+                newimage.append((pixel,pixel,pixel,0))
+        self.previewImage = PIL.Image.new('RGB', self.previewImage.size)
+        self.previewImage.putdata(newimage)
+
+    def openFile(self):
+        pass
+        #self.updateShadesFilter(self.shades)
+
+    def updatePreview(self, val=-1):
+        #This is a nasty hack for white value preview updates.... FIXME
+        if val > -1:
+            self.wv = val
+        #Create a list to store preview image data
+        newimage = []
+        #Loop over each pixel
+        for pixel in self.result.getdata():
+            #if the pixel is whiter that self.wv, turn it red.
+            if int(pixel) >= int(self.wv):
+                #Turn it red, #TODO, set a pref option for this color
+                newimage.append((255,0,0,0))
+            else:
+                #Use the pixel as is
+                newimage.append((pixel,pixel,pixel,0))
+        #Make a dummy image to store as RGB
+        #Converting leads to issues....
+        prev = Image.new('RGB', self.result.size)
+        #Put the new array data into the image
+        prev.putdata(newimage)
+        #Create a tk image
+        tkresult = PIL.ImageTk.PhotoImage(prev)
+        #Attach it to the preview pane.
+        self.preview.configure(image=tkresult)
+        self.preview.image=tkresult
+
+
+class XburnPanel2(wx.Panel):
+    supported_types = ['gcode']
+
+    def __init__(self, parent):
+        super(XburnPanel2, self).__init__(parent)
+        self.model_file = None
+        self._handlers_connected = False
+
+        static_box_dimensions = wx.StaticBox(self, label='Machine and Laser Settings')
+        self.machineHolder = wx.StaticBoxSizer(static_box_dimensions, wx.VERTICAL)
+
+        #TODO: change shades as this changes and shades is too high.
+        # Warning, auto? I dunno.
+        self.stepsSizer      = wx.BoxSizer(wx.HORIZONTAL)
+        self.labelsteps = wx.StaticText( self, wx.ID_ANY, "Total Pwm Steps", (10, 255), wx.DefaultSize, 0 )
+        self.labelsteps.Wrap( -1 )
+        self.steps = wx.Slider( self, wx.ID_ANY, 255, 0, 255,  wx.DefaultPosition, (200,-1), wx.SL_HORIZONTAL )
+        self.stepsinput = wx.TextCtrl(self, wx.ID_ANY,'')
+        self.machineHolder.Add(self.labelsteps, 0, wx.ALL)
+        self.stepsSizer.Add(self.steps, 0,  wx.ALL|wx.EXPAND, 5)
+        self.stepsSizer.Add(self.stepsinput, 0, wx.ALL)
+        self.machineHolder.Add(self.stepsSizer, 0, wx.ALL)
+
+        self.laserhighSizer      = wx.BoxSizer(wx.HORIZONTAL)
+        self.labellaserhigh = wx.StaticText( self, wx.ID_ANY, "Laster Max Pwm Value", (10, 255), wx.DefaultSize, 0 )
+        self.labellaserhigh.Wrap( -1 )
+        self.laserhigh = wx.Slider( self, wx.ID_ANY, 255, 0, 255,  wx.DefaultPosition, (200,-1), wx.SL_HORIZONTAL )
+        self.laserhighinput = wx.TextCtrl(self, wx.ID_ANY,'')
+        self.machineHolder.Add(self.labellaserhigh, 0, wx.ALL)
+        self.laserhighSizer.Add(self.laserhigh, 0,  wx.ALL|wx.EXPAND, 5)
+        self.laserhighSizer.Add(self.laserhighinput, 0, wx.ALL)
+        self.machineHolder.Add(self.laserhighSizer, 0, wx.ALL)
+
+        self.laserlowSizer      = wx.BoxSizer(wx.HORIZONTAL)
+        self.labellaserlow = wx.StaticText( self, wx.ID_ANY, "Laster Max Pwm Value", (10, 255), wx.DefaultSize, 0 )
+        self.labellaserlow.Wrap( -1 )
+        self.laserlow = wx.Slider( self, wx.ID_ANY, 255, 0, 255,  wx.DefaultPosition, (200,-1), wx.SL_HORIZONTAL )
+        self.laserlowinput = wx.TextCtrl(self, wx.ID_ANY,'')
+        self.machineHolder.Add(self.labellaserlow, 0, wx.ALL)
+        self.laserlowSizer.Add(self.laserlow, 0,  wx.ALL|wx.EXPAND, 5)
+        self.laserlowSizer.Add(self.laserlowinput, 0, wx.ALL)
+        self.machineHolder.Add(self.laserlowSizer, 0, wx.ALL)
+
+        self.burnrateSizer      = wx.BoxSizer(wx.HORIZONTAL)
+        self.labelburnrate = wx.StaticText( self, wx.ID_ANY, "Feedrate while burning.", (10, 255), wx.DefaultSize, 0 )
+        self.labelburnrate.Wrap( -1 )
+        self.burnrate = wx.Slider( self, wx.ID_ANY, 255, 0, 255,  wx.DefaultPosition, (200,-1), wx.SL_HORIZONTAL )
+        self.burnrateinput = wx.TextCtrl(self, wx.ID_ANY,'')
+        self.machineHolder.Add(self.labelburnrate, 0, wx.ALL)
+        self.burnrateSizer.Add(self.burnrate, 0,  wx.ALL|wx.EXPAND, 5)
+        self.burnrateSizer.Add(self.burnrateinput, 0, wx.ALL)
+        self.machineHolder.Add(self.burnrateSizer, 0, wx.ALL)
+
+        self.skiprateSizer      = wx.BoxSizer(wx.HORIZONTAL)
+        self.labelskiprate = wx.StaticText( self, wx.ID_ANY, "Feedrate while skipping.", (10, 255), wx.DefaultSize, 0 )
+        self.labelskiprate.Wrap( -1 )
+        self.skiprate = wx.Slider( self, wx.ID_ANY, 255, 0, 255,  wx.DefaultPosition, (200,-1), wx.SL_HORIZONTAL )
+        self.skiprateinput = wx.TextCtrl(self, wx.ID_ANY,'')
+        self.machineHolder.Add(self.labelskiprate, 0, wx.ALL)
+        self.skiprateSizer.Add(self.skiprate, 0,  wx.ALL|wx.EXPAND, 5)
+        self.skiprateSizer.Add(self.skiprateinput, 0, wx.ALL)
+        self.machineHolder.Add(self.skiprateSizer, 0, wx.ALL)
+
+        self.laseronSizer      = wx.BoxSizer(wx.HORIZONTAL)
+        self.labellaseron = wx.StaticText( self, wx.ID_ANY, "Gcode Command for Laser On.", (10, 255), wx.DefaultSize, 0 )
+        self.labellaseron.Wrap( -1 )
+        self.laseroninput = wx.TextCtrl(self, wx.ID_ANY,'M3')
+        self.machineHolder.Add(self.labellaseron, 0, wx.ALL)
+        self.laseronSizer.Add(self.laseroninput, 0, wx.ALL)
+        self.machineHolder.Add(self.laseronSizer, 0, wx.ALL)
+
+
+        self.laseroffSizer      = wx.BoxSizer(wx.HORIZONTAL)
+        self.labellaseroff = wx.StaticText( self, wx.ID_ANY, "Gcode Command for Laser Off.", (10, 255), wx.DefaultSize, 0 )
+        self.labellaseroff.Wrap( -1 )
+        self.laseroffinput = wx.TextCtrl(self, wx.ID_ANY,'M5')
+        self.machineHolder.Add(self.labellaseroff, 0, wx.ALL)
+        self.laseroffSizer.Add(self.laseroffinput, 0, wx.ALL)
+        self.machineHolder.Add(self.laseroffSizer, 0, wx.ALL)
+
+
+        self.lasermodSizer      = wx.BoxSizer(wx.HORIZONTAL)
+        self.labellasermod = wx.StaticText( self, wx.ID_ANY, "Gcode Command for Laser Mod.", (10, 255), wx.DefaultSize, 0 )
+        self.labellasermod.Wrap( -1 )
+        self.lasermodinput = wx.TextCtrl(self, wx.ID_ANY,'')
+        self.machineHolder.Add(self.labellasermod, 0, wx.ALL)
+        self.lasermodSizer.Add(self.lasermodinput, 0, wx.ALL)
+        self.machineHolder.Add(self.lasermodSizer, 0, wx.ALL)
+
+
+        static_box_dimensions = wx.StaticBox(self, label='Output Settings')
+        self.outputHolder = wx.StaticBoxSizer(static_box_dimensions, wx.VERTICAL)
+
+        self.box = wx.BoxSizer(wx.VERTICAL)
+        self.box.Add(self.machineHolder, 0, wx.EXPAND | wx.TOP | wx.RIGHT | wx.LEFT, border=5)
+        self.box.Add(self.outputHolder, 0, wx.EXPAND | wx.TOP | wx.RIGHT | wx.LEFT, border=5)
+
+
+        self.SetSizer(self.box)
+    def connect_handlers(self):
+        if self._handlers_connected:
+            return
+
+        self._handlers_connected = True
+
+
+    def set_initial_values(self, ):
+        pass
+
+
 
 class StartupPanel(wx.Panel):
 
@@ -531,6 +832,35 @@ class MainWindow(wx.Frame):
 
         self.Bind(wx.EVT_CLOSE, app.on_quit)
         self.Bind(wx.EVT_ICONIZE, self.on_iconize)
+        tb = wx.ToolBar( self, -1 , style=wx.TB_HORIZONTAL|wx.TB_DOCKABLE|wx.TB_3DBUTTONS|wx.TB_TEXT|wx.TB_NODIVIDER|wx.TB_NOALIGN )
+        self.ToolBar = tb
+        #self.toolbar.AddLabelTool(1, label, wx.Bitmap(imageName))
+        topen = tb.AddLabelTool( 101, "Open", wx.Bitmap("icons/open.png"))
+        tb.AddLabelTool(102, "Export", wx.Bitmap("icons/save.png"))
+
+        tb.AddSeparator()   # Invisible spacer
+
+        tb.AddLabelTool(103, "3d/2d", wx.Bitmap("icons/globe.png"))
+        tb.AddLabelTool(104, "Top View", wx.Bitmap("icons/home.png"))
+        tarrows = tb.AddLabelTool(105, "Show Arrows", wx.Bitmap("icons/left.png"))
+        self.Bind(wx.EVT_TOOL, app.on_file_open, topen)
+        self.Bind(wx.EVT_TOOL, app.on_arrows_toggled, tarrows)
+        #self.Bind(wx.EVT_TOOL, app.on_file_open, topen)
+        #self.
+        #tb.AddTool(106,wx.Bitmap("icons/right.png"))
+        #tb.AddTool(107,wx.Bitmap("icons/up.png"))
+        #tb.AddTool(107,wx.Bitmap("icons/down.png"))
+
+        tb.AddSeparator()   # Invisible spacer
+
+        # A way to insert a custom separator.
+        #import EmbeddedIconData as eid
+        #tb.AddControl( wx.StaticBitmap( tb, wx.ID_ANY, eid.GetSeparatorBitmap() ) )
+
+        tb.Realize()
+
+    def on_arrows_toggled(self, event):
+        app.on_arrows_toggled()
 
     def set_icon(self, icon):
         self.SetIcon(icon)
@@ -547,7 +877,7 @@ class MainWindow(wx.Frame):
     def set_size(self, size):
         self.SetSize(size)
 
-    def set_file_widgets(self, scene, panel):
+    def set_file_widgets(self, scene, panel, panel2):
         # remove startup panel if present
         if self._filename is None:
             self.box_main.Remove(self.panel_startup)
@@ -557,8 +887,9 @@ class MainWindow(wx.Frame):
 
         # remove previous scene and panel, if any, destroying the widgets
         self.box_scene.Clear(True)
-
+        self.box_scene.Add(panel2, 0, wx.EXPAND)
         self.box_scene.Add(scene, 1, wx.EXPAND)
+
         self.box_scene.Add(panel, 0, wx.EXPAND)
         self.box_scene.ShowItems(True)
         self.Layout() # without this call, wxPython does not draw the new widgets until window resize
@@ -876,9 +1207,19 @@ class TestApp(BaseApp):
     def on_file_open(self, event):
         dialog = OpenDialog(self.window)
         path = dialog.get_path()
+        #This should now be an image
         print path
-
+        #Run Xburn with last settings and create a workfile
+        #lol just load it...? why all the progress bars if,
         if path:
+            progress_dialog = ProgressDialog('Loading image')
+            import time
+            for i in range(10):
+                print i
+                progress_dialog.step(i, 9)
+                time.sleep(0.1)
+            progress_dialog.destroy()
+
             progress_dialog = ProgressDialog('Reading file...')
             import time
             for i in range(10):
@@ -916,4 +1257,3 @@ if __name__ == '__main__':
     app = TestApp()
     app.show_stl_mode()
     app.run()
-
