@@ -100,7 +100,7 @@ class Scene(BaseScene):
     # ------------------------------------------------------------------------
 
     def init(self):
-        glClearColor(0.0, 0.0, 0.0, 0.0) # set clear color to black
+        glClearColor(1.0, 1.0, 1.0, 0.0) # set clear color to black
         glClearDepth(1.0)                # set depth value to 1
         glDepthFunc(GL_LEQUAL)
 
@@ -355,4 +355,3 @@ class Scene(BaseScene):
         something like size, shape or color.
         """
         return self.model and self.model.modified
-
