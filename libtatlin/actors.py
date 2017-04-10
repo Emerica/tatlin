@@ -293,21 +293,23 @@ class GcodeModel(Model):
         """
         # default movement color is gray
         color = (0.6, 0.6, 0.6, 0.6)
-
         extruder_on = (move.flags & Movement.FLAG_EXTRUDER_ON or
                        move.delta_e > 0)
         outer_perimeter = (move.flags & Movement.FLAG_PERIMETER and
                            move.flags & Movement.FLAG_PERIMETER_OUTER)
-
         if extruder_on and outer_perimeter:
             color = (0.0, 0.875, 0.875, 0.6) # cyan
         elif extruder_on and move.flags & Movement.FLAG_PERIMETER:
             color = (0.0, 1.0, 0.0, 0.6) # green
         elif extruder_on and move.flags & Movement.FLAG_LOOP:
             color = (1.0, 0.875, 0.0, 0.6) # yellow
-        elif extruder_on:
-            color = (1.0, 0.0, 0.0, 0.6) # red
-
+        elif extruder_on and int(move.spindle_speed) < 1:
+            val = int(move.spindle_speed)/12000
+            color = (1.0,0.0,0.0, val)
+        elif int(move.spindle_speed)>0:
+            val = int(move.spindle_speed)/12000
+            #color = (0.55, 0.27, 0.08, val) #TODO:#Brown... like burned brown option
+            color = (0, 0, 0, val)
         return color
 
     # ------------------------------------------------------------------------
@@ -436,7 +438,7 @@ class GcodeModel(Model):
         start = self.layer_marker_stops[self.num_layers_to_draw - 1]
         end   = self.layer_marker_stops[self.num_layers_to_draw]
 
-        glColor4f(0.6, 0.6, 0.6, 0.6)
+        glColor4f(1.0, 0.0, 0.0, 0.6)
         glDrawArrays(GL_TRIANGLES, start, end - start)
 
         self.layer_marker_buffer.unbind()
@@ -620,4 +622,3 @@ class StlModel(Model):
         self.vertices = self.vertices.dot(final_matrix)
         self.invalidate_bounding_box()
         self.modified = True
-
