@@ -24,10 +24,11 @@ import logging
 
 from libtatlin.actors import Platform
 from libtatlin.scene import Scene
-from libtatlin.ui import load_icon, BaseApp, MainWindow, StlPanel, GcodePanel, \
-        OpenDialog, OpenErrorAlert, ProgressDialog, SaveDialog, QuitDialog, AboutDialog
+from libtatlin.ui import load_icon, BaseApp, MainWindow, StlPanel, GcodePanel, XburnPanel, \
+        XburnPanel2, OpenDialog, OpenErrorAlert, ProgressDialog, SaveDialog, QuitDialog, AboutDialog
 from libtatlin.storage import ModelFile, ModelFileError
 from libtatlin.config import Config
+
 
 
 def format_float(f):
@@ -104,6 +105,8 @@ Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
         window_h = self.config.read('ui.window_h', int)
         self.window.set_size((window_w, window_h))
 
+
+
         self.init_scene()
 
     def init_config(self):
@@ -112,9 +115,15 @@ Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
     def init_scene(self):
         self.panel = None
+        self.panel2 = None
         self.scene = None
         self.model_file = None
-
+        #TODO SETTINGS PROFILES
+        self.arrows = 1
+        self.shades = 24
+        self.wv = 240
+        self.wvpreview = False
+        self.filename = ""
         # dict of properties that other components can read from the app
         self._app_properties = {
             'layers_range_max': lambda: self.scene.get_property('max_layers'),
@@ -281,6 +290,7 @@ Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
             self.scene.invalidate()
             # tell all the widgets that care about model size that it has changed
             self.panel.model_size_changed()
+            self.panel2.model_size_changed()
             self.window.file_modified = self.scene.model_modified
         except ValueError:
             pass # ignore invalid values
@@ -290,6 +300,7 @@ Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
             self.scene.change_model_dimension(dimension, float(value))
             self.scene.invalidate()
             self.panel.model_size_changed()
+            self.panel2.model_size_changed()
             self.window.file_modified = self.scene.model_modified
         except ValueError:
             pass # ignore invalid values
@@ -318,6 +329,9 @@ Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
         """
         Show/hide arrows on the Gcode model.
         """
+        print "Tatlin.py - arrows call arrows:" +str(value)
+        value = 0 if self.arrows else 1
+        self.arrows = value
         self.scene.show_arrows(value)
         self.scene.invalidate()
 
@@ -373,6 +387,11 @@ Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
         try:
             self.update_recent_files(fpath, ftype)
+            app.filename = fpath
+            os.system("cd ../xburn;python cli.py "+fpath+" 100 -pa -s " +
+                str(app.shades) +" -wv "+ str(app.wv))
+            fpath = "../xburn/workfile.gcode"
+            ftype = "gcode"
             self.model_file = ModelFile(fpath, ftype)
 
             self.scene = Scene(self.window)
@@ -412,17 +431,22 @@ Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
             self.panel.set_initial_values()
             self.panel.connect_handlers()
 
+            self.panel2 = self.create_laser_panel()
+            self.panel2.set_initial_values(app.filename)
+
+
             # always start with the same view on the scene
             self.scene.reset_view(True)
             if self.model_file.filetype == 'gcode':
                 self.scene.mode_2d = bool(self.config.read('ui.gcode_2d', int))
+
             else:
                 self.scene.mode_2d = False
 
             if hasattr(self.panel, 'set_3d_view'):
                 self.panel.set_3d_view(not self.scene.mode_2d)
 
-            self.window.set_file_widgets(self.scene, self.panel)
+            self.window.set_file_widgets(self.scene, self.panel, self.panel2)
             self.window.filename = self.model_file.basename
             self.window.file_modified = False
             self.window.menu_enable_file_items(self.model_file.filetype != 'gcode')
@@ -465,9 +489,18 @@ Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
     def create_panel(self):
         if self.model_file.filetype == 'gcode':
-            Panel = GcodePanel
+            Panel = XburnPanel2
         elif self.model_file.filetype == 'stl':
             Panel = StlPanel
+        elif self.model_file.filetype == 'xburn':
+            Panel = XburnPanel2
+        return Panel(self.window)
+
+    def create_laser_panel(self):
+        if self.model_file.filetype == 'gcode':
+            Panel = XburnPanel
+        elif self.model_file.filetype == 'xburn':
+            Panel = XburnPanel
         return Panel(self.window)
 
     def panel_matches_file(self):
@@ -483,4 +516,3 @@ if __name__ == '__main__':
     app.show_window()
     app.command_line()
     app.run()
-
