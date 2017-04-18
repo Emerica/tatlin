@@ -1,10 +1,15 @@
-Tatlin
+Tatlin For Lasers... Xburn GUI
 ======
 
 Tatlin is a Gcode and STL viewer heavily inspired by Mac-only software
 Pleasant3D. Besides viewing, it also supports rotating and scaling of STL
 files. It is currently in early stages of development, but should already
 be quite usable.
+
+
+This hacked up version supports creating burning paths for low power lasers attached to GRBL devices.
+![Preview Image](testing.jpg?raw=true "Preview Image")
+
 
 Dependencies
 ------------
@@ -25,7 +30,7 @@ To launch Tatlin from the command line:
 
 You can also provide a filename to load:
 
-    $ python tatlin.py foobar.stl
+    $ python tatlin.py foobar.jpg
 
 Mouse navigation
 
