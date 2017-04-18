@@ -8,7 +8,7 @@ be quite usable.
 
 
 This hacked up version supports creating burning paths for low power lasers attached to GRBL devices.
-![Preview Image](testing.jpg?raw=true "Preview Image")
+![Preview Image](testing.png?raw=true "Preview Image")
 
 
 Dependencies
