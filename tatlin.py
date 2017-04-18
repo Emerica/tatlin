@@ -122,8 +122,22 @@ Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
         self.arrows = 1
         self.shades = 24
         self.wv = 240
+        self.de = 3
         self.wvpreview = False
+        self.width = 100
         self.filename = ""
+
+        self.lasersteps = 255
+        self.laserlow = 0
+        self.laserhigh = 12000
+        self.laseron = "M3"
+        self.laseroff = "M5"
+        self.lasermod = "S"
+
+        self.burnrate = 800
+        self.skiprate = 3000
+
+
         # dict of properties that other components can read from the app
         self._app_properties = {
             'layers_range_max': lambda: self.scene.get_property('max_layers'),
@@ -388,8 +402,8 @@ Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
         try:
             self.update_recent_files(fpath, ftype)
             app.filename = fpath
-            os.system("cd ../xburn;python cli.py "+fpath+" 100 -pa -s " +
-                str(app.shades) +" -wv "+ str(app.wv))
+            os.system("cd ../xburn;python cli.py "+fpath+" "+str(app.width)+" -pa -s " +
+                str(app.shades) +" -wv "+ str(app.wv) + " -de "+ str(app.de))
             fpath = "../xburn/workfile.gcode"
             ftype = "gcode"
             self.model_file = ModelFile(fpath, ftype)

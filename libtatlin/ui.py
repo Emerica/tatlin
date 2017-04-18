@@ -467,73 +467,165 @@ class XburnPanel(wx.Panel):
         # DIMENSIONS
         #----------------------------------------------------------------------
 
-        static_box_dimensions = wx.StaticBox(self, label='Original Image')
-        self.imageHolder = wx.StaticBoxSizer(static_box_dimensions, wx.VERTICAL)
 
-        static_box_dimensions = wx.StaticBox(self, label='Filtered Image')
-        self.prevHolder = wx.StaticBoxSizer(static_box_dimensions, wx.VERTICAL)
+        self.imageHolder = wx.CollapsiblePane(self, label="Original Image",
+            style=wx.CP_DEFAULT_STYLE, size=(250,-1))
+
+        self.Bind(wx.EVT_COLLAPSIBLEPANE_CHANGED, self.OnPaneChanged, self.imageHolder)
+        self.OrigImageContent(self.imageHolder.GetPane())
+        self.static_box_dimensions = wx.StaticBox(self)
+        self.imageHolderPanelBG = wx.StaticBoxSizer(self.static_box_dimensions, wx.VERTICAL)
+        self.imageHolderPanelBG.Add(self.imageHolder, 0, wx.EXPAND|wx.ALL)
+
+
+        self.prevHolder = wx.CollapsiblePane(self, label="Preview Image",
+            style=wx.CP_DEFAULT_STYLE, size=(250,-1))
+
+        self.Bind(wx.EVT_COLLAPSIBLEPANE_CHANGED, self.OnPaneChanged2, self.prevHolder)
+        self.PrevImageContent(self.prevHolder.GetPane())
+        self.static_box_dimensions2 = wx.StaticBox(self)
+        self.prevHolderPanelBG = wx.StaticBoxSizer(self.static_box_dimensions2, wx.VERTICAL)
+        self.prevHolderPanelBG.Add(self.prevHolder, 0, wx.EXPAND|wx.ALL)
+
+
+        self.filterHolder = wx.CollapsiblePane(self, label="Filter Settngs",
+            style=wx.CP_DEFAULT_STYLE, size=(250,-1))
+
+        self.Bind(wx.EVT_COLLAPSIBLEPANE_CHANGED, self.OnPaneChanged3, self.filterHolder)
+        self.filterContent(self.filterHolder.GetPane())
+        self.static_box_dimensions3 = wx.StaticBox(self)
+        self.filterHolderPanelBG = wx.StaticBoxSizer(self.static_box_dimensions3, wx.VERTICAL)
+        self.filterHolderPanelBG.Add(self.filterHolder, 0, wx.EXPAND|wx.ALL)
 
         self.originalImage = None
-        self.originalImageHolder = None
+        #self.previewImage = None
 
-        self.previewImage = None
-        self.previewImageHolder = None
+        self.box = wx.BoxSizer(wx.VERTICAL)
+        self.box.Add(self.imageHolderPanelBG, 0, wx.ALL, border=5)
+        self.box.Add(self.prevHolderPanelBG, 0,  wx.ALL, border=5)
+        self.box.Add(self.filterHolderPanelBG, 0, wx.EXPAND | wx.ALL, border=5)
 
+        self.SetSizer(self.box)
 
-        static_box_dimensions = wx.StaticBox(self, label='Filter Settings')
-        self.filterHolder = wx.StaticBoxSizer(static_box_dimensions, wx.VERTICAL)
+        self.imageHolder.Expand()
+        self.prevHolder.Expand()
+        self.filterHolder.Expand()
 
-        self.shadeSizer      = wx.BoxSizer(wx.HORIZONTAL)
-        self.labelshades = wx.StaticText( self, wx.ID_ANY, "Shades", (10, 255), wx.DefaultSize, 0 )
+    def OnPaneChanged3(self, e):
+        #self.Refresh()
+        self.Layout()
+    def OnPaneChanged2(self, e):
+        #self.Refresh()
+        self.Layout()
+    def OnPaneChanged(self, e):
+        #self.Refresh()
+        self.Layout()
+
+    def OrigImageContent(self,pane):
+        aimage = wx.EmptyImage(250,150)
+        self.originalImageHolder = wx.StaticBitmap(pane, wx.ID_ANY,
+            wx.BitmapFromImage(aimage))
+
+    def PrevImageContent(self,pane):
+        self.previewSizer = wx.BoxSizer(wx.VERTICAL)
+        self.previewSkip = wx.CheckBox(pane, label = 'Preview skipped White')
+        self.previewSkip.SetValue(app.wvpreview)
+        self.previewSkip.Bind(wx.EVT_CHECKBOX,self.wvChecked)
+        aimage = wx.EmptyImage(250,150)
+        self.previewImageHolder = wx.StaticBitmap(pane, wx.ID_ANY,wx.BitmapFromImage(aimage))
+        self.previewSizer.Add(self.previewSkip, 0,  wx.ALL|wx.EXPAND, 5)
+        self.previewSizer.Add(self.previewImageHolder, 0,wx.ALL|wx.EXPAND,)
+        pane.SetSizer(self.previewSizer)
+    def filterContent(self,pane):
+
+        self.filterSizer = wx.BoxSizer(wx.VERTICAL)
+
+        ####
+        self.shadeSizer = wx.BoxSizer(wx.HORIZONTAL)
+        self.labelshades = wx.StaticText( pane, wx.ID_ANY, "Shades", (10, 255), wx.DefaultSize, 0 )
         self.labelshades.Wrap( -1 )
-        self.shades = wx.Slider( self, wx.ID_ANY, app.shades, 2, 256,  wx.DefaultPosition, (200,-1), wx.SL_HORIZONTAL )
-        self.shadeinput = wx.TextCtrl(self, wx.ID_ANY,str(app.shades))
-        self.filterHolder.Add(self.labelshades, 0, wx.ALL)
+        self.shades = wx.Slider( pane, wx.ID_ANY, app.shades, 2, 256,  wx.DefaultPosition, (200,-1), wx.SL_HORIZONTAL )
+        self.shadeinput = wx.TextCtrl(pane, wx.ID_ANY,str(app.shades))
+
         self.shadeSizer.Add(self.shades, 0,  wx.ALL|wx.EXPAND, 5)
         self.shadeSizer.Add(self.shadeinput, 0, wx.ALL)
-        self.filterHolder.Add(self.shadeSizer, 0, wx.ALL)
+
+        self.filterSizer.Add(self.labelshades)
+        self.filterSizer.Add(self.shadeSizer,wx.ALL|wx.EXPAND, 5)
+
         self.shades.Bind(wx.EVT_SLIDER, self.shadeScroll)
 
 
+        ####
+
         self.wvSizer      = wx.BoxSizer(wx.HORIZONTAL)
-        self.labelwv = wx.StaticText( self, wx.ID_ANY, "White Value", (10, 255), wx.DefaultSize, 0 )
+        self.labelwv = wx.StaticText( pane, wx.ID_ANY, "White Value", (10, 255), wx.DefaultSize, 0 )
         self.labelwv.Wrap( -1 )
-        self.wv = wx.Slider( self, wx.ID_ANY, app.wv, 0, 255,  wx.DefaultPosition, (200,-1), wx.SL_HORIZONTAL )
-        self.wvinput = wx.TextCtrl(self, wx.ID_ANY,str(app.wv))
-        self.filterHolder.Add(self.labelwv, 0, wx.ALL)
+        self.wv = wx.Slider( pane, wx.ID_ANY, app.wv, 0, 255,  wx.DefaultPosition, (200,-1), wx.SL_HORIZONTAL )
+        self.wvinput = wx.TextCtrl(pane, wx.ID_ANY,str(app.wv))
+
         self.wvSizer.Add(self.wv, 0,  wx.ALL|wx.EXPAND, 5)
         self.wvSizer.Add(self.wvinput, 0, wx.ALL)
-        self.filterHolder.Add(self.wvSizer, 0, wx.ALL)
 
-        self.previewSkip = wx.CheckBox(self, label = 'Preview skipped White')
-        self.previewSkip.SetValue(app.wvpreview)
-        self.filterHolder.Add(self.previewSkip, 0, wx.ALL)
+        self.filterSizer.Add(self.labelwv)
+        self.filterSizer.Add(self.wvSizer,wx.ALL|wx.EXPAND, 5)
 
         self.wv.Bind(wx.EVT_SLIDER, self.wvScroll)
-        self.previewSkip.Bind(wx.EVT_CHECKBOX,self.wvChecked)
 
-        self.apply = wx.Button(self, id=-1, label='Apply Changes')
+        ###
+
+        self.deSizer      = wx.BoxSizer(wx.HORIZONTAL)
+        self.labelde = wx.StaticText( pane, wx.ID_ANY, "Pixels Per MM", (10, 255), wx.DefaultSize, 0 )
+        self.labelde.Wrap( -1 )
+        self.de = wx.Slider( pane, wx.ID_ANY, app.de, 0.01, 10,  wx.DefaultPosition, (200,-1), wx.SL_HORIZONTAL)
+        self.deinput = wx.TextCtrl(pane, wx.ID_ANY,str(app.de))
+
+        self.deSizer.Add(self.de, 0,  wx.ALL|wx.EXPAND, 5)
+        self.deSizer.Add(self.deinput, 0, wx.ALL)
+
+        self.filterSizer.Add(self.labelde)
+        self.filterSizer.Add(self.deSizer,wx.ALL|wx.EXPAND, 5)
+
+        self.de.Bind(wx.EVT_SLIDER, self.deScroll)
+
+        ###
+
+        self.widthSizer      = wx.BoxSizer(wx.HORIZONTAL)
+        self.labelwidth = wx.StaticText( pane, wx.ID_ANY, "Output Width in MM", (10, 255), wx.DefaultSize, 0 )
+        self.labelwidth.Wrap( -1 )
+        self.widthinput = wx.TextCtrl(pane, wx.ID_ANY,str(app.width),style=wx.TE_PROCESS_ENTER)
+
+        self.widthSizer.Add(self.widthinput, 0, wx.ALL)
+        self.widthinput.Bind(wx.EVT_TEXT_ENTER, self.widthText)
+
+        self.filterSizer.Add(self.labelwidth)
+        self.filterSizer.Add(self.widthSizer,wx.ALL|wx.EXPAND, 5)
+
+        ####
+        self.apply = wx.Button(pane , id=-1, label='Render Changes')
         self.apply.Bind(wx.EVT_BUTTON, self.generate)
-        # optional tooltip
-        self.apply.SetToolTip(wx.ToolTip("Click to regenerate main preview and code file."))
-        self.filterHolder.Add(self.apply, 0, wx.ALL)
 
-        self.box = wx.BoxSizer(wx.VERTICAL)
-        self.box.Add(self.imageHolder, 0, wx.EXPAND | wx.TOP | wx.RIGHT | wx.LEFT, border=5)
-        self.box.Add(self.prevHolder, 0, wx.EXPAND | wx.TOP | wx.RIGHT | wx.LEFT, border=5)
-        self.box.Add(self.filterHolder, 0, wx.EXPAND | wx.TOP | wx.RIGHT | wx.LEFT, border=5)
+        self.filterSizer.Add(self.apply)
+
+        ####
+
+        pane.SetSizer(self.filterSizer)
 
 
+    def widthText(self, e):
+        print "hi"
 
-        self.SetSizer(self.box)
+    def widthText(self, e):
+        obj = e.GetEventObject()
+        val = obj.GetValue()
+        app.width=int(val)
+
     def generate(self, e):
         app.open_and_display_file(app.filename, "gcode")
 
     def wvChecked(self, e):
         obj = e.GetEventObject()
         val = obj.GetValue()
-        print val
-        #self.wvinput.SetValue(str(val))
         app.wvpreview = val
         self.updateShadesFilter(app.shades)
 
@@ -543,6 +635,13 @@ class XburnPanel(wx.Panel):
         self.wvinput.SetValue(str(val))
         app.wv = val
         self.updateShadesFilter(app.shades)
+
+    def deScroll(self, e):
+        obj = e.GetEventObject()
+        val = obj.GetValue()
+        self.deinput.SetValue(str(val))
+        app.de = val
+        #self.updateShadesFilter(app.shades)
 
     def shadeScroll(self, e):
         obj = e.GetEventObject()
@@ -566,23 +665,17 @@ class XburnPanel(wx.Panel):
         H = self.originalImage.GetHeight()
 
         if W > H:
-            self.NewW = 300
-            self.NewH = 300 * H / W
+            self.NewW = 250
+            self.NewH = 250 * H / W
         else:
-            self.NewH = 200
-            self.NewW = 200 * W / H
+            self.NewH = 250
+            self.NewW = 250 * W / H
 
         self.originalImage = self.originalImage.Scale(self.NewW,self.NewH)
-        self.originalImageHolder = wx.StaticBitmap(self, wx.ID_ANY, wx.BitmapFromImage(self.originalImage ))
-
-        self.imageHolder.Add(self.originalImageHolder, 0, wx.ALL|wx.CENTER, 5)
-        aimage = wx.EmptyImage(self.NewW,self.NewH)
-        self.previewImageHolder = wx.StaticBitmap(self, wx.ID_ANY, wx.BitmapFromImage(aimage))
-        #self.prevHolder.Add(self.previewImageHolder, 0, wx.ALL|wx.CENTER, 5)
-        self.prevHolder.Add(self.previewImageHolder, 0, wx.ALL|wx.CENTER, 5)
-
-        self.updateShadesFilter(app.shades)
-
+        self.originalImageHolder.SetBitmap(wx.BitmapFromImage(self.originalImage ))
+        self.updateShadesFilter( app.shades)
+        self.Fit()
+        self.Show(1)
 
     def updateShadesFilter(self, value):
         self.previewImage = PIL.Image.open(self.image_file)
@@ -599,7 +692,8 @@ class XburnPanel(wx.Panel):
         aimage.SetData(self.previewImage.convert("RGB").tobytes())
         #aimage.SetAlphaData(self.previewImage.convert("RGBA").tobytes()[3::4])
         self.previewImageHolder.SetBitmap(wx.BitmapFromImage(aimage))
-
+        self.Fit()
+        self.Show(1)
         #self.prevHolder.Refresh()
 
     def drawSkip(self):
@@ -660,32 +754,41 @@ class XburnPanel2(wx.Panel):
         self.stepsSizer      = wx.BoxSizer(wx.HORIZONTAL)
         self.labelsteps = wx.StaticText( self, wx.ID_ANY, "Total Pwm Steps", (10, 255), wx.DefaultSize, 0 )
         self.labelsteps.Wrap( -1 )
-        self.steps = wx.Slider( self, wx.ID_ANY, 255, 0, 255,  wx.DefaultPosition, (200,-1), wx.SL_HORIZONTAL )
-        self.stepsinput = wx.TextCtrl(self, wx.ID_ANY,'')
+        self.steps = wx.Slider( self, wx.ID_ANY, app.lasersteps, 0, 255,  wx.DefaultPosition, (200,-1), wx.SL_HORIZONTAL )
+        self.stepsinput = wx.TextCtrl(self, wx.ID_ANY,str(app.lasersteps),style=wx.TE_PROCESS_ENTER)
         self.machineHolder.Add(self.labelsteps, 0, wx.ALL)
         self.stepsSizer.Add(self.steps, 0,  wx.ALL|wx.EXPAND, 5)
         self.stepsSizer.Add(self.stepsinput, 0, wx.ALL)
         self.machineHolder.Add(self.stepsSizer, 0, wx.ALL)
 
+        self.steps.Bind(wx.EVT_SLIDER, self.stepsScroll)
+        self.stepsinput.Bind(wx.EVT_TEXT_ENTER, self.stepsText)
+
         self.laserhighSizer      = wx.BoxSizer(wx.HORIZONTAL)
-        self.labellaserhigh = wx.StaticText( self, wx.ID_ANY, "Laster Max Pwm Value", (10, 255), wx.DefaultSize, 0 )
+        self.labellaserhigh = wx.StaticText( self, wx.ID_ANY, "Laser Max Pwm Value", (10, 255), wx.DefaultSize, 0 )
         self.labellaserhigh.Wrap( -1 )
-        self.laserhigh = wx.Slider( self, wx.ID_ANY, 255, 0, 255,  wx.DefaultPosition, (200,-1), wx.SL_HORIZONTAL )
-        self.laserhighinput = wx.TextCtrl(self, wx.ID_ANY,'')
+        self.laserhigh = wx.Slider( self, wx.ID_ANY, app.laserhigh, 0, 12000,  wx.DefaultPosition, (200,-1), wx.SL_HORIZONTAL )
+        self.laserhighinput = wx.TextCtrl(self, wx.ID_ANY,str(app.laserhigh))
         self.machineHolder.Add(self.labellaserhigh, 0, wx.ALL)
         self.laserhighSizer.Add(self.laserhigh, 0,  wx.ALL|wx.EXPAND, 5)
         self.laserhighSizer.Add(self.laserhighinput, 0, wx.ALL)
         self.machineHolder.Add(self.laserhighSizer, 0, wx.ALL)
 
+        self.laserhigh.Bind(wx.EVT_SLIDER, self.lhScroll)
+        self.laserhighinput.Bind(wx.EVT_TEXT_ENTER, self.lhText)
+
         self.laserlowSizer      = wx.BoxSizer(wx.HORIZONTAL)
-        self.labellaserlow = wx.StaticText( self, wx.ID_ANY, "Laster Max Pwm Value", (10, 255), wx.DefaultSize, 0 )
+        self.labellaserlow = wx.StaticText( self, wx.ID_ANY, "Laser Min Pwm Value", (10, 255), wx.DefaultSize, 0 )
         self.labellaserlow.Wrap( -1 )
-        self.laserlow = wx.Slider( self, wx.ID_ANY, 255, 0, 255,  wx.DefaultPosition, (200,-1), wx.SL_HORIZONTAL )
-        self.laserlowinput = wx.TextCtrl(self, wx.ID_ANY,'')
+        self.laserlow = wx.Slider( self, wx.ID_ANY, app.laserlow, 0, 12000,  wx.DefaultPosition, (200,-1), wx.SL_HORIZONTAL )
+        self.laserlowinput = wx.TextCtrl(self, wx.ID_ANY,str(app.laserlow))
         self.machineHolder.Add(self.labellaserlow, 0, wx.ALL)
         self.laserlowSizer.Add(self.laserlow, 0,  wx.ALL|wx.EXPAND, 5)
         self.laserlowSizer.Add(self.laserlowinput, 0, wx.ALL)
         self.machineHolder.Add(self.laserlowSizer, 0, wx.ALL)
+
+        self.laserlow.Bind(wx.EVT_SLIDER, self.llScroll)
+        self.laserlowinput.Bind(wx.EVT_TEXT_ENTER, self.llText)
 
         self.burnrateSizer      = wx.BoxSizer(wx.HORIZONTAL)
         self.labelburnrate = wx.StaticText( self, wx.ID_ANY, "Feedrate while burning.", (10, 255), wx.DefaultSize, 0 )
@@ -710,7 +813,7 @@ class XburnPanel2(wx.Panel):
         self.laseronSizer      = wx.BoxSizer(wx.HORIZONTAL)
         self.labellaseron = wx.StaticText( self, wx.ID_ANY, "Gcode Command for Laser On.", (10, 255), wx.DefaultSize, 0 )
         self.labellaseron.Wrap( -1 )
-        self.laseroninput = wx.TextCtrl(self, wx.ID_ANY,'M3')
+        self.laseroninput = wx.TextCtrl(self, wx.ID_ANY,app.laseron)
         self.machineHolder.Add(self.labellaseron, 0, wx.ALL)
         self.laseronSizer.Add(self.laseroninput, 0, wx.ALL)
         self.machineHolder.Add(self.laseronSizer, 0, wx.ALL)
@@ -719,7 +822,7 @@ class XburnPanel2(wx.Panel):
         self.laseroffSizer      = wx.BoxSizer(wx.HORIZONTAL)
         self.labellaseroff = wx.StaticText( self, wx.ID_ANY, "Gcode Command for Laser Off.", (10, 255), wx.DefaultSize, 0 )
         self.labellaseroff.Wrap( -1 )
-        self.laseroffinput = wx.TextCtrl(self, wx.ID_ANY,'M5')
+        self.laseroffinput = wx.TextCtrl(self, wx.ID_ANY,app.laseroff)
         self.machineHolder.Add(self.labellaseroff, 0, wx.ALL)
         self.laseroffSizer.Add(self.laseroffinput, 0, wx.ALL)
         self.machineHolder.Add(self.laseroffSizer, 0, wx.ALL)
@@ -728,7 +831,7 @@ class XburnPanel2(wx.Panel):
         self.lasermodSizer      = wx.BoxSizer(wx.HORIZONTAL)
         self.labellasermod = wx.StaticText( self, wx.ID_ANY, "Gcode Command for Laser Mod.", (10, 255), wx.DefaultSize, 0 )
         self.labellasermod.Wrap( -1 )
-        self.lasermodinput = wx.TextCtrl(self, wx.ID_ANY,'')
+        self.lasermodinput = wx.TextCtrl(self, wx.ID_ANY,app.lasermod)
         self.machineHolder.Add(self.labellasermod, 0, wx.ALL)
         self.lasermodSizer.Add(self.lasermodinput, 0, wx.ALL)
         self.machineHolder.Add(self.lasermodSizer, 0, wx.ALL)
@@ -743,6 +846,56 @@ class XburnPanel2(wx.Panel):
 
 
         self.SetSizer(self.box)
+
+    def llScroll(self, event):
+         self.laserlowinput.SetValue(str(self.laserlow.GetValue()))
+         app.laserlow = self.laserlowinput.GetValue()
+
+    def llText(self, event):
+        raw_value = self.laserlowinput.GetValue().strip()
+        if all(x in '0123456789.+-' for x in raw_value):
+            # convert to float and limit to 2 decimals
+            value = round(float(raw_value), 2)
+            self.laserlowinput.ChangeValue("%9.2f" % (value))
+        else:
+            self.laserlowinput.ChangeValue("12000")
+        self.laserlow.SetValue(self.laserlowinput.GetValue())
+        app.laserlow = self.laserlowinput.GetValue()
+
+    def lhScroll(self, event):
+         self.laserhighinput.SetValue(str(self.laserhigh.GetValue()))
+         app.laserhigh = self.laserhighinput.GetValue()
+
+    def lhText(self, event):
+        raw_value = self.laserhighinput.GetValue().strip()
+        if all(x in '0123456789.+-' for x in raw_value):
+            # convert to float and limit to 2 decimals
+            value = round(float(raw_value), 2)
+            self.laserhighinput.ChangeValue("%9.2f" % (value))
+        else:
+            self.laserhighinput.ChangeValue("12000")
+        self.laserhigh.SetValue(self.laserhighinput.GetValue())
+        app.laserhigh = self.laserhighinput.GetValue()
+
+    def stepsScroll(self, event):
+         self.stepsinput.SetValue(str(self.steps.GetValue()))
+         app.lasersteps = self.stepsinput.GetValue()
+
+    def stepsText(self, event):
+        """
+        check for numeric entry and limit to 2 decimals
+        accepted result is in self.value
+        """
+        raw_value = self.stepsinput.GetValue().strip()
+        if all(x in '0123456789.+-' for x in raw_value):
+            # convert to float and limit to 2 decimals
+            value = round(float(raw_value), 2)
+            self.stepsinput.ChangeValue("%9.2f" % (value))
+        else:
+            self.stepsinput.ChangeValue("12000")
+        self.steps.SetValue(self.stepsinput.GetValue())
+        app.lasersteps = self.stepsinput.GetValue()
+
     def connect_handlers(self):
         if self._handlers_connected:
             return
