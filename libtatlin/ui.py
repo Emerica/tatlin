@@ -514,9 +514,11 @@ class XburnPanel(wx.Panel):
     def OnPaneChanged3(self, e):
         #self.Refresh()
         self.Layout()
+
     def OnPaneChanged2(self, e):
         #self.Refresh()
         self.Layout()
+
     def OnPaneChanged(self, e):
         #self.Refresh()
         self.Layout()
@@ -536,6 +538,7 @@ class XburnPanel(wx.Panel):
         self.previewSizer.Add(self.previewSkip, 0,  wx.ALL|wx.EXPAND, 5)
         self.previewSizer.Add(self.previewImageHolder, 0,wx.ALL|wx.EXPAND,)
         pane.SetSizer(self.previewSizer)
+
     def filterContent(self,pane):
 
         self.filterSizer = wx.BoxSizer(wx.VERTICAL)
@@ -611,7 +614,6 @@ class XburnPanel(wx.Panel):
 
         pane.SetSizer(self.filterSizer)
 
-
     def widthText(self, e):
         print "hi"
 
@@ -655,7 +657,6 @@ class XburnPanel(wx.Panel):
             return
 
         self._handlers_connected = True
-
 
     def set_initial_values(self, image):
         self.image_file = image
@@ -737,6 +738,7 @@ class XburnPanel(wx.Panel):
         self.preview.configure(image=tkresult)
         self.preview.image=tkresult
 
+#TODO's Events, Clip shades when PWM levels are below shades level?
 
 class XburnPanel2(wx.Panel):
     supported_types = ['gcode']
@@ -746,106 +748,240 @@ class XburnPanel2(wx.Panel):
         self.model_file = None
         self._handlers_connected = False
 
-        static_box_dimensions = wx.StaticBox(self, label='Machine and Laser Settings')
-        self.machineHolder = wx.StaticBoxSizer(static_box_dimensions, wx.VERTICAL)
+
+        self.laserHolder = wx.CollapsiblePane(self, label="Laser Settings",
+            style=wx.CP_DEFAULT_STYLE, size=(250,-1))
+
+        self.Bind(wx.EVT_COLLAPSIBLEPANE_CHANGED, self.OnPaneChanged, self.laserHolder)
+        self.SettingsContent(self.laserHolder.GetPane())
+        self.settings_box_dimensions = wx.StaticBox(self)
+        self.settingsHolderPanelBG = wx.StaticBoxSizer(self.settings_box_dimensions, wx.VERTICAL)
+        self.settingsHolderPanelBG.Add(self.laserHolder, 0, wx.EXPAND|wx.ALL)
+
+        self.box2 = wx.BoxSizer(wx.VERTICAL)
+        self.box2.Add(self.settingsHolderPanelBG, 0, wx.ALL, border=5)
+
+        self.SetSizer(self.box2)
+
+        self.laserHolder.Expand()
+
+    def OnPaneChanged(self, e):
+        #self.Refresh()
+        self.Layout()
+
+    def stepsScroll(self, event):
+         self.stepsinput.SetValue(str(self.steps.GetValue()))
+         app.lasersteps = self.stepsinput.GetValue()
+
+    def stepsText(self, event):
+        """
+        check for numeric entry and limit to 2 decimals
+        accepted result is in self.value
+        """
+        raw_value = self.stepsinput.GetValue().strip()
+        if all(x in '0123456789.+-' for x in raw_value):
+            # convert to float and limit to 2 decimals
+            value = round(float(raw_value), 2)
+            self.stepsinput.ChangeValue("%9.2f" % (value))
+        else:
+            self.stepsinput.ChangeValue("12000")
+        self.steps.SetValue(self.stepsinput.GetValue())
+        app.lasersteps = self.stepsinput.GetValue()
+
+    def brScroll(self, event):
+        self.burnrateinput.SetValue(str(self.burnrate.GetValue()))
+        apps.burnrate = self.burnrateinput.GetValue()
+
+    def brText(self, event):
+        """
+        check for numeric entry and limit to 2 decimals
+        accepted result is in self.value
+        """
+        raw_value = self.burnrateinput.GetValue().strip()
+        if all(x in '0123456789.+-' for x in raw_value):
+            # convert to float and limit to 2 decimals
+            value = round(float(raw_value), 2)
+            self.burnrateinput.ChangeValue("%9.2f" % (value))
+        else:
+            self.burnrateinput.ChangeValue("8000")
+        self.burnrate.SetValue(self.burnrateinput.GetValue())
+        app.burnrate = self.burnrateinput.GetValue()
+
+    def srScroll(self, event):
+        self.skiprateinput.SetValue(str(self.skiprate.GetValue()))
+        apps.skiprate = self.skiprateinput.GetValue()
+
+    def srText(self, event):
+        """
+        check for numeric entry and limit to 2 decimals
+        accepted result is in self.value
+        """
+        raw_value = self.skiprateinput.GetValue().strip()
+        if all(x in '0123456789.+-' for x in raw_value):
+            # convert to float and limit to 2 decimals
+            value = round(float(raw_value), 2)
+            self.skiprateinput.ChangeValue("%9.2f" % (value))
+        else:
+            self.skiprateinput.ChangeValue("8000")
+        self.skiprate.SetValue(self.skiprateinput.GetValue())
+        app.skiprate = self.skiprateinput.GetValue()
+
+    def SettingsContent(self,pane):
+        #Main settings sizer
+        self.settingsSizer = wx.BoxSizer(wx.VERTICAL)
+        ####
+        #Sizer to group the slider and text
+        self.stepsSizer      = wx.BoxSizer(wx.HORIZONTAL)
+        #Create a label
+        self.labelsteps = wx.StaticText( pane, wx.ID_ANY, "Total Pwm Steps", (10, 255), wx.DefaultSize, 0 )
+        self.labelsteps.Wrap( -1 )
+        #Create a slider
+        self.steps = wx.Slider( pane, wx.ID_ANY, app.lasersteps, 0, 255,  wx.DefaultPosition, (200,-1), wx.SL_HORIZONTAL )
+        #Create a text input
+        self.stepsinput = wx.TextCtrl(pane, wx.ID_ANY,str(app.lasersteps),style=wx.TE_PROCESS_ENTER)
+        #Group the slider and text into a horiz sizer
+        self.stepsSizer.Add(self.steps, 0,  wx.ALL|wx.EXPAND, 5)
+        self.stepsSizer.Add(self.stepsinput, 0, wx.ALL)
+        #Add the label and sizer to the main settings sizer
+        self.settingsSizer.Add(self.labelsteps)
+        self.settingsSizer.Add(self.stepsSizer,wx.ALL|wx.EXPAND, 5)
+        #Bind methods to the slide and enter events ,TODO; text on change...?
+        self.steps.Bind(wx.EVT_SLIDER, self.stepsScroll)
+        self.stepsinput.Bind(wx.EVT_TEXT_ENTER, self.stepsText)
+        ####
 
         #TODO: change shades as this changes and shades is too high.
         # Warning, auto? I dunno.
-        self.stepsSizer      = wx.BoxSizer(wx.HORIZONTAL)
-        self.labelsteps = wx.StaticText( self, wx.ID_ANY, "Total Pwm Steps", (10, 255), wx.DefaultSize, 0 )
-        self.labelsteps.Wrap( -1 )
-        self.steps = wx.Slider( self, wx.ID_ANY, app.lasersteps, 0, 255,  wx.DefaultPosition, (200,-1), wx.SL_HORIZONTAL )
-        self.stepsinput = wx.TextCtrl(self, wx.ID_ANY,str(app.lasersteps),style=wx.TE_PROCESS_ENTER)
-        self.machineHolder.Add(self.labelsteps, 0, wx.ALL)
-        self.stepsSizer.Add(self.steps, 0,  wx.ALL|wx.EXPAND, 5)
-        self.stepsSizer.Add(self.stepsinput, 0, wx.ALL)
-        self.machineHolder.Add(self.stepsSizer, 0, wx.ALL)
 
-        self.steps.Bind(wx.EVT_SLIDER, self.stepsScroll)
-        self.stepsinput.Bind(wx.EVT_TEXT_ENTER, self.stepsText)
-
+        #Sizer to group the slider and text
         self.laserhighSizer      = wx.BoxSizer(wx.HORIZONTAL)
-        self.labellaserhigh = wx.StaticText( self, wx.ID_ANY, "Laser Max Pwm Value", (10, 255), wx.DefaultSize, 0 )
+        #Create a label
+        self.labellaserhigh = wx.StaticText( pane, wx.ID_ANY, "Laser Max Pwm Value", (10, 255), wx.DefaultSize, 0 )
         self.labellaserhigh.Wrap( -1 )
-        self.laserhigh = wx.Slider( self, wx.ID_ANY, app.laserhigh, 0, 12000,  wx.DefaultPosition, (200,-1), wx.SL_HORIZONTAL )
-        self.laserhighinput = wx.TextCtrl(self, wx.ID_ANY,str(app.laserhigh))
-        self.machineHolder.Add(self.labellaserhigh, 0, wx.ALL)
+        #Create a slider
+        self.laserhigh = wx.Slider( pane, wx.ID_ANY, app.laserhigh, 0, 12000,  wx.DefaultPosition, (200,-1), wx.SL_HORIZONTAL )
+        #Create a text input
+        self.laserhighinput = wx.TextCtrl(pane, wx.ID_ANY,str(app.laserhigh))
+        #Group the slider and text into a horiz sizer
         self.laserhighSizer.Add(self.laserhigh, 0,  wx.ALL|wx.EXPAND, 5)
         self.laserhighSizer.Add(self.laserhighinput, 0, wx.ALL)
-        self.machineHolder.Add(self.laserhighSizer, 0, wx.ALL)
-
+        #Add the label and sizer to the main settings sizer
+        self.settingsSizer.Add(self.labellaserhigh)
+        self.settingsSizer.Add(self.laserhighSizer,wx.ALL|wx.EXPAND, 5)
+        #Bind methods to the slide and enter events ,TODO; text on change...?
         self.laserhigh.Bind(wx.EVT_SLIDER, self.lhScroll)
         self.laserhighinput.Bind(wx.EVT_TEXT_ENTER, self.lhText)
 
+        ###
+
+        #Sizer to group the slider and text
         self.laserlowSizer      = wx.BoxSizer(wx.HORIZONTAL)
-        self.labellaserlow = wx.StaticText( self, wx.ID_ANY, "Laser Min Pwm Value", (10, 255), wx.DefaultSize, 0 )
+        #Create a label
+        self.labellaserlow = wx.StaticText( pane, wx.ID_ANY, "Laser Min Pwm Value", (10, 255), wx.DefaultSize, 0 )
         self.labellaserlow.Wrap( -1 )
-        self.laserlow = wx.Slider( self, wx.ID_ANY, app.laserlow, 0, 12000,  wx.DefaultPosition, (200,-1), wx.SL_HORIZONTAL )
-        self.laserlowinput = wx.TextCtrl(self, wx.ID_ANY,str(app.laserlow))
-        self.machineHolder.Add(self.labellaserlow, 0, wx.ALL)
+        #Create a slider
+        self.laserlow = wx.Slider( pane, wx.ID_ANY, app.laserlow, 0, 12000,  wx.DefaultPosition, (200,-1), wx.SL_HORIZONTAL )
+        #Create a text input
+        self.laserlowinput = wx.TextCtrl(pane, wx.ID_ANY,str(app.laserlow))
+        #Group the slider and text into a horiz sizer
         self.laserlowSizer.Add(self.laserlow, 0,  wx.ALL|wx.EXPAND, 5)
         self.laserlowSizer.Add(self.laserlowinput, 0, wx.ALL)
-        self.machineHolder.Add(self.laserlowSizer, 0, wx.ALL)
-
+        #Add the label and sizer to the main settings sizer
+        self.settingsSizer.Add(self.labellaserlow)
+        self.settingsSizer.Add(self.laserlowSizer,wx.ALL|wx.EXPAND, 5)
+        #Bind methods to the slide and enter events ,TODO; text on change...?
         self.laserlow.Bind(wx.EVT_SLIDER, self.llScroll)
         self.laserlowinput.Bind(wx.EVT_TEXT_ENTER, self.llText)
 
+        ###
+
+        #Sizer to group the slider and text
         self.burnrateSizer      = wx.BoxSizer(wx.HORIZONTAL)
-        self.labelburnrate = wx.StaticText( self, wx.ID_ANY, "Feedrate while burning.", (10, 255), wx.DefaultSize, 0 )
+        #Create a label
+        self.labelburnrate = wx.StaticText( pane, wx.ID_ANY, "Feedrate while burning.", (10, 255), wx.DefaultSize, 0 )
         self.labelburnrate.Wrap( -1 )
-        self.burnrate = wx.Slider( self, wx.ID_ANY, 255, 0, 255,  wx.DefaultPosition, (200,-1), wx.SL_HORIZONTAL )
-        self.burnrateinput = wx.TextCtrl(self, wx.ID_ANY,'')
-        self.machineHolder.Add(self.labelburnrate, 0, wx.ALL)
+        #Create a slider
+        self.burnrate = wx.Slider( pane, wx.ID_ANY, app.burnrate, 0, 8000,  wx.DefaultPosition, (200,-1), wx.SL_HORIZONTAL )
+        #Create a text input
+        self.burnrateinput = wx.TextCtrl(pane, wx.ID_ANY,app.burnrate)
+        #Group the slider and text into a horiz sizer
         self.burnrateSizer.Add(self.burnrate, 0,  wx.ALL|wx.EXPAND, 5)
         self.burnrateSizer.Add(self.burnrateinput, 0, wx.ALL)
-        self.machineHolder.Add(self.burnrateSizer, 0, wx.ALL)
+        #Add the label and sizer to the main settings sizer
+        self.settingsSizer.Add(self.labelburnrate)
+        self.settingsSizer.Add(self.burnrateSizer,wx.ALL|wx.EXPAND, 5)
+        #Bind methods to the slide and enter events ,TODO; text on change...?
+        self.burnrate.Bind(wx.EVT_SLIDER, self.brScroll)
+        self.burnrateinput.Bind(wx.EVT_TEXT_ENTER, self.brText)
 
+
+
+        #Sizer to group the slider and text
         self.skiprateSizer      = wx.BoxSizer(wx.HORIZONTAL)
-        self.labelskiprate = wx.StaticText( self, wx.ID_ANY, "Feedrate while skipping.", (10, 255), wx.DefaultSize, 0 )
+        #Create a label
+        self.labelskiprate = wx.StaticText( pane, wx.ID_ANY, "Feedrate while skiping.", (10, 255), wx.DefaultSize, 0 )
         self.labelskiprate.Wrap( -1 )
-        self.skiprate = wx.Slider( self, wx.ID_ANY, 255, 0, 255,  wx.DefaultPosition, (200,-1), wx.SL_HORIZONTAL )
-        self.skiprateinput = wx.TextCtrl(self, wx.ID_ANY,'')
-        self.machineHolder.Add(self.labelskiprate, 0, wx.ALL)
+        #Create a slider
+        self.skiprate = wx.Slider( pane, wx.ID_ANY, app.skiprate, 0, 8000,  wx.DefaultPosition, (200,-1), wx.SL_HORIZONTAL )
+        #Create a text input
+        self.skiprateinput = wx.TextCtrl(pane, wx.ID_ANY,app.skiprate)
+        #Group the slider and text into a horiz sizer
         self.skiprateSizer.Add(self.skiprate, 0,  wx.ALL|wx.EXPAND, 5)
         self.skiprateSizer.Add(self.skiprateinput, 0, wx.ALL)
-        self.machineHolder.Add(self.skiprateSizer, 0, wx.ALL)
+        #Add the label and sizer to the main settings sizer
+        self.settingsSizer.Add(self.labelskiprate)
+        self.settingsSizer.Add(self.skiprateSizer,wx.ALL|wx.EXPAND, 5)
+        #Bind methods to the slide and enter events ,TODO; text on change...?
+        self.skiprate.Bind(wx.EVT_SLIDER, self.srScroll)
+        self.skiprateinput.Bind(wx.EVT_TEXT_ENTER, self.srText)
 
+
+
+        #Sizer to group the slider and text
         self.laseronSizer      = wx.BoxSizer(wx.HORIZONTAL)
-        self.labellaseron = wx.StaticText( self, wx.ID_ANY, "Gcode Command for Laser On.", (10, 255), wx.DefaultSize, 0 )
+        #Make a label
+        self.labellaseron = wx.StaticText( pane, wx.ID_ANY, "Gcode Command for Laser On.", (10, 255), wx.DefaultSize, 0 )
         self.labellaseron.Wrap( -1 )
-        self.laseroninput = wx.TextCtrl(self, wx.ID_ANY,app.laseron)
-        self.machineHolder.Add(self.labellaseron, 0, wx.ALL)
+        #Text input
+        self.laseroninput = wx.TextCtrl(pane, wx.ID_ANY,app.laseron)
+        #Add control to sizer
         self.laseronSizer.Add(self.laseroninput, 0, wx.ALL)
-        self.machineHolder.Add(self.laseronSizer, 0, wx.ALL)
+        #Add controls to settings sizer
+        self.settingsSizer.Add(self.labellaseron)
+        self.settingsSizer.Add(self.laseronSizer)
 
 
+        #Sizer to group the slider and text
         self.laseroffSizer      = wx.BoxSizer(wx.HORIZONTAL)
-        self.labellaseroff = wx.StaticText( self, wx.ID_ANY, "Gcode Command for Laser Off.", (10, 255), wx.DefaultSize, 0 )
+        #Make a label
+        self.labellaseroff = wx.StaticText( pane, wx.ID_ANY, "Gcode Command for Laser OFF.", (10, 255), wx.DefaultSize, 0 )
         self.labellaseroff.Wrap( -1 )
-        self.laseroffinput = wx.TextCtrl(self, wx.ID_ANY,app.laseroff)
-        self.machineHolder.Add(self.labellaseroff, 0, wx.ALL)
+        #Text input
+        self.laseroffinput = wx.TextCtrl(pane, wx.ID_ANY,app.laseroff)
+        #Add control to sizer
         self.laseroffSizer.Add(self.laseroffinput, 0, wx.ALL)
-        self.machineHolder.Add(self.laseroffSizer, 0, wx.ALL)
+        #Add controls to settings sizer
+        self.settingsSizer.Add(self.labellaseroff)
+        self.settingsSizer.Add(self.laseroffSizer)
 
 
+        #Sizer to group the slider and text
         self.lasermodSizer      = wx.BoxSizer(wx.HORIZONTAL)
-        self.labellasermod = wx.StaticText( self, wx.ID_ANY, "Gcode Command for Laser Mod.", (10, 255), wx.DefaultSize, 0 )
+        #Make a label
+        self.labellasermod = wx.StaticText( pane, wx.ID_ANY, "Gcode Command for Laser CONTROL.", (10, 255), wx.DefaultSize, 0 )
         self.labellasermod.Wrap( -1 )
-        self.lasermodinput = wx.TextCtrl(self, wx.ID_ANY,app.lasermod)
-        self.machineHolder.Add(self.labellasermod, 0, wx.ALL)
+        #Text input
+        self.lasermodinput = wx.TextCtrl(pane, wx.ID_ANY,app.lasermod)
+        #Add control to sizer
         self.lasermodSizer.Add(self.lasermodinput, 0, wx.ALL)
-        self.machineHolder.Add(self.lasermodSizer, 0, wx.ALL)
+        #Add controls to settings sizer
+        self.settingsSizer.Add(self.labellasermod)
+        self.settingsSizer.Add(self.lasermodSizer)
 
 
-        static_box_dimensions = wx.StaticBox(self, label='Output Settings')
-        self.outputHolder = wx.StaticBoxSizer(static_box_dimensions, wx.VERTICAL)
+        pane.SetSizer(self.settingsSizer)
 
-        self.box = wx.BoxSizer(wx.VERTICAL)
-        self.box.Add(self.machineHolder, 0, wx.EXPAND | wx.TOP | wx.RIGHT | wx.LEFT, border=5)
-        self.box.Add(self.outputHolder, 0, wx.EXPAND | wx.TOP | wx.RIGHT | wx.LEFT, border=5)
-
-
-        self.SetSizer(self.box)
+        #self.SetSizer(self.box)
 
     def llScroll(self, event):
          self.laserlowinput.SetValue(str(self.laserlow.GetValue()))
@@ -901,7 +1037,6 @@ class XburnPanel2(wx.Panel):
             return
 
         self._handlers_connected = True
-
 
     def set_initial_values(self, ):
         pass
@@ -1011,6 +1146,7 @@ class MainWindow(wx.Frame):
         #tb.AddControl( wx.StaticBitmap( tb, wx.ID_ANY, eid.GetSeparatorBitmap() ) )
 
         tb.Realize()
+
 
     def on_arrows_toggled(self, event):
         app.on_arrows_toggled()
